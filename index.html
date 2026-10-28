@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Клуб Романтики: Истории Двоих</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #0f0c20; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+        .game-container { width: 100vw; height: 100vh; max-width: 450px; max-height: 900px; background: linear-gradient(180deg, #1a0b2e 0%, #000 100%); position: relative; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+        .top-bar { display: flex; justify-content: space-between; padding: 15px; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px); z-index: 10; position: absolute; top: 0; width: 100%; }
+        .stat-badge { background: rgba(255, 255, 255, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 14px; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.3); }
+        .scene { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000&q=80') center/cover; }
+        .character-container { position: absolute; bottom: 220px; width: 100%; display: flex; justify-content: center; height: 50%; pointer-events: none; }
+        .character-avatar { max-width: 85%; max-height: 100%; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 2px solid rgba(230, 0, 126, 0.6); object-fit: cover; }
+        .notification { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: #e6007e; color: white; padding: 10px 20px; border-radius: 25px; font-size: 13px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 20; opacity: 0; transition: opacity 0.3s; pointer-events: none; text-align: center; width: 85%; }
+        .dialogue-box { position: relative; z-index: 5; background: linear-gradient(180deg, rgba(20, 10, 35, 0.9) 0%, rgba(5, 2, 10, 0.98) 100%); backdrop-filter: blur(15px); padding: 20px; border-top: 2px solid #e6007e; min-height: 230px; display: flex; flex-direction: column; justify-content: space-between; }
+        .speaker-name { font-size: 16px; font-weight: bold; color: #ff69b4; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .dialogue-text { font-size: 15px; line-height: 1.4; color: #eaeaea; margin-bottom: 15px; }
+        .choices-container { display: flex; flex-direction: column; gap: 10px; }
+        .choice-btn { background: linear-gradient(90deg, rgba(230, 0, 126, 0.4) 0%, rgba(120, 0, 180, 0.4) 100%); border: 1px solid #e6007e; color: white; padding: 12px 15px; border-radius: 10px; font-size: 14px; text-align: left; }
+        .choice-btn.premium { border-color: #ffd700; background: linear-gradient(90deg, rgba(255, 215, 0, 0.3) 0%, rgba(230, 0, 126, 0.4) 100%); }
+        .next-btn { align-self: flex-end; background: rgba(255, 255, 255, 0.2); border: none; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="top-bar">
+        <div class="stat-badge">💎 <span id="diamonds">50</span></div>
+        <div class="stat-badge">👑 Серия 1</div>
+        <div class="stat-badge">❤️ <span id="romance">0</span></div>
+    </div>
+    <div class="notification" id="toast"></div>
+    <div class="scene"></div>
+    <div class="character-container"><img src="" id="char-img" class="character-avatar" style="display:none;"></div>
+    <div class="dialogue-box">
+        <div>
+            <div class="speaker-name" id="speaker"></div>
+            <div class="dialogue-text" id="text"></div>
+        </div>
+        <div class="choices-container" id="choices" style="display:none;"></div>
+        <button class="next-btn" id="next-btn" onclick="nextStep()">Далее ▶</button>
+    </div>
+</div>
+<script>
+    const C = {
+        katya: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&q=80",
+        artem1: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=500&q=80",
+        ira: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=500&q=80",
+        kirill: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&q=80",
+        artem2: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=500&q=80",
+        sereja: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=500&q=80"
+    };
+    let diamonds = 50, romance = 0, step = 0;
+    const story = [
+        { speaker: "Катя", text: "Мы собрались нашей компанией: я, Артём, Ира и Кирилл.", char: C.katya },
+        { speaker: "Артём", text: "Привет всем! Катя, ты отлично выглядишь!", char: C.artem1 },
+        { speaker: "Ира", text: "Смотрите, вошел наш одногруппник Артём... и Серёжа с ним.", char: C.ira },
+        { speaker: "Кирилл", text: "(Покраснел) Ой, Серёжа тоже тут...", char: C.kirill },
+        { speaker: "Артём (Одногруппник)", text: "Катя, привет! Выглядишь шикарно. Можем сходить на кофе?", char: C.artem2 },
+        { type: "choice", speaker: "Выбор Кати", char: C.katya, choices: [
+            { text: "📊 Напомнить, что он женат", cost: 0, action: () => { showToast("Вы поставили его на место!"); go(6); } },
+            { text: "💎 Пофлиртовать в ответ (15 💎)", cost: 15, action: () => { addR(2); showToast("Артём заинтригован!"); go(6); } }
+        ]},
+        { speaker: "Серёжа", text: "Привет, ребят! Кирилл, классная кофта!", char: C.sereja },
+        { speaker: "Кирилл", text: "С-спасибо, Серёжа...", char: C.kirill },
+        { type: "choice", speaker: "Помочь Кириллу?", char: C.katya, choices: [
+            { text: "💎 Пригласить Серёжу к нам (20 💎)", cost: 20, action: () => { addR(3); showToast("Кирилл вам очень благодарен!"); go(9); } },
+            { text: "📊 Промолчать", cost: 0, action: () => { go(9); } }
+        ]},
+        { speaker: "Катя", text: "Вечер обещался быть очень интересным... Конец 1 серии!", char: C.katya }
+    ];
+    function showToast(t) { const el = document.getElementById('toast'); el.innerText = t; el.style.opacity = '1'; setTimeout(() => el.style.opacity = '0', 2500); }
+    function addR(n) { romance += n; document.getElementById('romance').innerText = romance; }
+    function render() {
+        const d = story[step]; if (!d) return;
+        document.getElementById('speaker').innerText = d.speaker;
+        const img = document.getElementById('char-img');
+        if (d.char) { img.src = d.char; img.style.display = 'block'; } else img.style.display = 'none';
+        const cEl = document.getElementById('choices'), nBtn = document.getElementById('next-btn');
+        if (d.type === 'choice') {
+            document.getElementById('text').innerText = "Сделайте ваш выбор:";
+            nBtn.style.display = 'none'; cEl.style.display = 'flex'; cEl.innerHTML = '';
+            d.choices.forEach(c => {
+                const b = document.createElement('button');
+                b.className = `choice-btn ${c.cost > 0 ? 'premium' : ''}`;
+                b.innerText = c.text;
+                b.onclick = () => {
+                    if (c.cost > diamonds) return alert("Мало алмазов!");
+                    diamonds -= c.cost; document.getElementById('diamonds').innerText = diamonds;
+                    c.action();
+                };
+                cEl.appendChild(b);
+            });
+        } else {
+            document.getElementById('text').innerText = d.text;
+            cEl.style.display = 'none'; nBtn.style.display = 'block';
+        }
+    }
+    function nextStep() { if (step < story.length - 1) { step++; render(); } }
+    function go(s) { step = s; render(); }
+    render();
+</script>
+</body>
+</html>
